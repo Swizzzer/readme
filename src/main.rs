@@ -13,13 +13,16 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    let current_exe = env::current_exe()?.file_name().unwrap().to_os_string();
-
-    let current_dir = env::current_dir()?;
+    // 获取可执行文件的路径
+    let exe_path = env::current_exe()?;
+    let exe_dir = exe_path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Executable directory not found"))?;
+    let current_exe = exe_path.file_name().unwrap().to_os_string();
 
     let mut hash_map = HashMap::new();
 
-    let entries = fs::read_dir(&current_dir)?
+    let entries = fs::read_dir(exe_dir)?
         .filter_map(Result::ok)
         .filter(|e| e.path().is_file())
         .filter(|e| e.file_name() != current_exe && e.file_name() != "sha256.txt");
@@ -49,13 +52,13 @@ fn main() -> io::Result<()> {
             hash_str
         };
 
-        let new_path = current_dir.join(&new_file_name);
+        let new_path = exe_dir.join(&new_file_name);
         fs::rename(&path, &new_path)?;
         println!("Renamed {:?} to {:?}", path, new_path);
     }
 
     // 所有文件处理完毕后再写入sha256.txt
-    let mut sha256_file = File::create(current_dir.join("sha256.txt"))?;
+    let mut sha256_file = File::create(exe_dir.join("sha256.txt"))?;
     for (file_name, hash) in hash_map {
         writeln!(sha256_file, "{}: {}", file_name, hash)?;
     }
